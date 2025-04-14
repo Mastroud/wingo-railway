@@ -10,6 +10,8 @@ from oauth2client.service_account import ServiceAccountCredentials
 # === CONFIG ===
 RECEIVER_URL = "https://8f0d-2405-201-680d-d94d-a01a-7bfe-cdc6-e548.ngrok-free.app/receive"
 SPREADSHEET_ID = "1SCQl-hZGKPV7rTzP14bEL_0_PGqQ2ZJ9sr6zB9GjwOI"
+TELEGRAM_TOKEN = "8115443756:AAEhJVJRDaHSS43x8I7kVNI1hj-9M41hZ90"
+TELEGRAM_CHAT_ID = "221114906"
 
 # === Google Sheets Setup ===
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -17,7 +19,14 @@ creds = ServiceAccountCredentials.from_json_keyfile_name("gspread_key.json", sco
 client = gspread.authorize(creds)
 sheet = client.open_by_key(SPREADSHEET_ID).sheet1
 
-# === Wait until 7th second of the minute ===
+def send_telegram(text):
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    data = {"chat_id": TELEGRAM_CHAT_ID, "text": text}
+    try:
+        requests.post(url, data=data)
+    except Exception as ex:
+        print(f"Telegram error: {ex}")
+
 def wait_until_7th_second():
     while True:
         now = datetime.datetime.now()
@@ -25,7 +34,6 @@ def wait_until_7th_second():
             return
         time.sleep(0.3)
 
-# === Scrape, Send, Log ===
 def scrape_and_send():
     driver = setup_driver()
     driver.get("https://bdgclubs.in/#/home/AllLotteryGames/WinGo?typeId=1")
@@ -48,22 +56,22 @@ def scrape_and_send():
         )
         result_msg = f"🧠 SYSTEM REPORT:\nPeriod: {period}\nNumber: {number}\nSize: {size}\nColor(s): {', '.join(color)}"
 
-        # Send to local receiver
         requests.post(RECEIVER_URL, json={"message": result_msg})
         print(f"✅ Sent to receiver: {result_msg.replace(chr(10), ' | ')}")
 
-        # Append to Google Sheet
         sheet.append_row([
             str(datetime.datetime.now()), period, number, size, ", ".join(color)
         ])
         print("✅ Logged to Google Sheet.")
 
     except Exception as e:
-        print(f"❌ ERROR: {e}")
+        error_msg = f"❌ SCRAPER ERROR:\n{e}"
+        print(error_msg)
+        send_telegram(error_msg)
 
     driver.quit()
 
-# === Run Loop ===
+# Run loop
 while True:
     wait_until_7th_second()
     scrape_and_send()
