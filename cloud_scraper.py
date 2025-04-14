@@ -3,12 +3,10 @@ import json
 import base64
 import time
 import requests
-from datetime import datetime
+from datetime import datetime, timezone
 from oauth2client.service_account import ServiceAccountCredentials
 import gspread
-from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.service import Service
 from webdriver_setup import create_chrome_driver
 
 # Load Google credentials from env var
@@ -59,7 +57,7 @@ def scrape_and_send():
 
         color = ",".join(get_color(result))
         size = get_size(result)
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
         result_msg = f"{timestamp},{period},{result},{size},{color}"
         requests.post(RECEIVER_URL, json={"message": result_msg})
@@ -74,8 +72,9 @@ def scrape_and_send():
 
 # Loop every minute at 7s
 while True:
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     if now.second == 7:
         scrape_and_send()
         time.sleep(1)
     time.sleep(0.2)
+
