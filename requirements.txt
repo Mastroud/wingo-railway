@@ -1,5 +1,6 @@
-undetected-chromedriver
+selenium
 gspread
 oauth2client
 requests
+chromedriver-autoinstaller
 
