@@ -6,7 +6,6 @@ import requests
 from datetime import datetime, timezone
 from oauth2client.service_account import ServiceAccountCredentials
 import gspread
-from selenium.webdriver.common.by import By
 from webdriver_setup import create_chrome_driver
 
 # Load Google credentials from env var
@@ -48,12 +47,12 @@ def get_size(num):
 
 def scrape_and_send():
     try:
-        driver = create_chrome_driver()
-        driver.get("https://bdgclubs.in/#/home/AllLotteryGames/WinGo?typeId=1")
-        time.sleep(3)
+        playwright, browser, page = create_chrome_driver()
+        page.goto("https://bdgclubs.in/#/home/AllLotteryGames/WinGo?typeId=1")
+        page.wait_for_timeout(3000)
 
-        period = driver.find_element(By.CSS_SELECTOR, ".game-record > div > div:nth-child(1) > div:nth-child(1)").text.strip()
-        result = int(driver.find_element(By.CSS_SELECTOR, ".game-record > div > div:nth-child(1) > div:nth-child(2)").text.strip())
+        period = page.locator(".game-record > div > div:nth-child(1) > div:nth-child(1)").inner_text().strip()
+        result = int(page.locator(".game-record > div > div:nth-child(1) > div:nth-child(2)").inner_text().strip())
 
         color = ",".join(get_color(result))
         size = get_size(result)
@@ -65,7 +64,8 @@ def scrape_and_send():
         sheet.append_row([timestamp, period, result, size, color])
         print(f"✅ Sent: {result_msg}")
 
-        driver.quit()
+        browser.close()
+        playwright.stop()
     except Exception as e:
         send_telegram(f"❌ SCRAPER ERROR:\n{e}")
         print(f"❌ Error: {e}")
@@ -77,4 +77,3 @@ while True:
         scrape_and_send()
         time.sleep(1)
     time.sleep(0.2)
-

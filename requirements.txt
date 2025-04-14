@@ -1,6 +1,5 @@
-selenium
+playwright
 gspread
 oauth2client
 requests
-chromedriver-autoinstaller
 
