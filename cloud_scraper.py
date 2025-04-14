@@ -1,91 +1,81 @@
-
-from webdriver_setup import setup_driver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-import datetime, time, requests
-import gspread
+import os
+import json
+import base64
+import time
+import requests
+from datetime import datetime
 from oauth2client.service_account import ServiceAccountCredentials
+import gspread
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service
+from webdriver_setup import create_chrome_driver
 
-RECEIVER_URL = "https://8f0d-2405-201-680d-d94d-a01a-7bfe-cdc6-e548.ngrok-free.app/receive"
-SPREADSHEET_ID = "1SCQl-hZGKPV7rTzP14bEL_0_PGqQ2ZJ9sr6zB9GjwOI"
-TELEGRAM_TOKEN = "8115443756:AAEhJVJRDaHSS43x8I7kVNI1hj-9M41hZ90"
-TELEGRAM_CHAT_ID = "221114906"
-
-key_dict = {
-  "type": "service_account",
-  "project_id": "wingo-scraper-419709",
-  "private_key_id": "ec38c8ba7f69e7a51d1d4e65b9084f3c3ea4fc8d",
-  "private_key": """-----BEGIN PRIVATE KEY-----
-MIIEv...YOUR_FULL_PRIVATE_KEY_HERE...
------END PRIVATE KEY-----""",
-  "client_email": "wingo-logger@wingo-scraper-419709.iam.gserviceaccount.com",
-  "client_id": "116600263750120579422",
-  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-  "token_uri": "https://oauth2.googleapis.com/token",
-  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/wingo-logger%40wingo-scraper-419709.iam.gserviceaccount.com",
-  "universe_domain": "googleapis.com"
-}
+# Load Google credentials from env var
+b64_key = os.getenv("GOOGLE_CREDENTIALS_B64")
+key_dict = json.loads(base64.b64decode(b64_key).decode())
 
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 creds = ServiceAccountCredentials.from_json_keyfile_dict(key_dict, scope)
 client = gspread.authorize(creds)
-sheet = client.open_by_key(SPREADSHEET_ID).sheet1
 
-def send_telegram(text):
+# Connect to Google Sheet
+sheet = client.open_by_key("1SCQl-hZGKPV7rTzP14bEL_0_PGqQ2ZJ9sr6zB9GjwOI").sheet1
+
+# Constants
+RECEIVER_URL = "https://e779-2405-201-680d-d94d-a01a-7bfe-cdc6-e548.ngrok-free.app/receive"
+TELEGRAM_TOKEN = "8115443756:AAEhJVJRDaHSS43x8I7kVNI1hj-9M41hZ90"
+TELEGRAM_CHAT_ID = "221114906"
+
+def send_telegram(msg):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    data = {"chat_id": TELEGRAM_CHAT_ID, "text": text}
+    data = {"chat_id": TELEGRAM_CHAT_ID, "text": msg}
     try:
         requests.post(url, data=data)
-    except Exception as ex:
-        print(f"Telegram error: {ex}")
+    except Exception:
+        pass
 
-def wait_until_7th_second():
-    while True:
-        now = datetime.datetime.now()
-        if now.second == 7:
-            return
-        time.sleep(0.3)
+def get_color(num):
+    if num == 0:
+        return ["Red", "Violet"]
+    elif num == 5:
+        return ["Green", "Violet"]
+    elif num % 2 == 0:
+        return ["Red"]
+    else:
+        return ["Green"]
+
+def get_size(num):
+    return "Big" if num >= 5 else "Small"
 
 def scrape_and_send():
-    driver = setup_driver()
-    driver.get("https://bdgclubs.in/#/home/AllLotteryGames/WinGo?typeId=1")
-
     try:
-        WebDriverWait(driver, 15).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, ".GameRecord__C-body"))
-        )
+        driver = create_chrome_driver()
+        driver.get("https://bdgclubs.in/#/home/AllLotteryGames/WinGo?typeId=1")
+        time.sleep(3)
 
-        base = "#app > div.WinGo__C > div.GameRecord__C.game-record > div.GameRecord__C-body > div:nth-child(1)"
-        period = driver.find_element(By.CSS_SELECTOR, f"{base} > div.van-col.van-col--9").text
-        number = driver.find_element(By.CSS_SELECTOR, f"{base} > div.van-col.van-col--5.numcenter > div").text
-        num = int(number)
-        size = "Big" if num >= 5 else "Small"
-        color = (
-            ["Red", "Violet"] if num == 0 else
-            ["Green", "Violet"] if num == 5 else
-            ["Red"] if num % 2 == 0 else
-            ["Green"]
-        )
-        result_msg = f"🧠 SYSTEM REPORT:\nPeriod: {period}\nNumber: {number}\nSize: {size}\nColor(s): {', '.join(color)}"
+        period = driver.find_element(By.CSS_SELECTOR, ".game-record > div > div:nth-child(1) > div:nth-child(1)").text.strip()
+        result = int(driver.find_element(By.CSS_SELECTOR, ".game-record > div > div:nth-child(1) > div:nth-child(2)").text.strip())
 
+        color = ",".join(get_color(result))
+        size = get_size(result)
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        result_msg = f"{timestamp},{period},{result},{size},{color}"
         requests.post(RECEIVER_URL, json={"message": result_msg})
-        print(f"✅ Sent to receiver: {result_msg.replace(chr(10), ' | ')}")
 
-        sheet.append_row([
-            str(datetime.datetime.now()), period, number, size, ", ".join(color)
-        ])
-        print("✅ Logged to Google Sheet.")
+        sheet.append_row([timestamp, period, result, size, color])
+        print(f"✅ Sent: {result_msg}")
 
+        driver.quit()
     except Exception as e:
-        error_msg = f"❌ SCRAPER ERROR:\n{e}"
-        print(error_msg)
-        send_telegram(error_msg)
+        send_telegram(f"❌ SCRAPER ERROR:\n{e}")
+        print(f"❌ Error: {e}")
 
-    driver.quit()
-
+# Loop every minute at 7s
 while True:
-    wait_until_7th_second()
-    scrape_and_send()
-    time.sleep(1)
+    now = datetime.utcnow()
+    if now.second == 7:
+        scrape_and_send()
+        time.sleep(1)
+    time.sleep(0.2)
