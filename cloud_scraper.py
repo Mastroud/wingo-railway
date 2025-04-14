@@ -7,28 +7,25 @@ import datetime, time, requests
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
-# === CONFIG ===
 RECEIVER_URL = "https://8f0d-2405-201-680d-d94d-a01a-7bfe-cdc6-e548.ngrok-free.app/receive"
 SPREADSHEET_ID = "1SCQl-hZGKPV7rTzP14bEL_0_PGqQ2ZJ9sr6zB9GjwOI"
 TELEGRAM_TOKEN = "8115443756:AAEhJVJRDaHSS43x8I7kVNI1hj-9M41hZ90"
 TELEGRAM_CHAT_ID = "221114906"
 
-# === Inline Google Credentials with preserved PEM format ===
 key_dict = {
   "type": "service_account",
   "project_id": "wingo-scraper-419709",
   "private_key_id": "ec38c8ba7f69e7a51d1d4e65b9084f3c3ea4fc8d",
   "private_key": """-----BEGIN PRIVATE KEY-----
 MIIEv...YOUR_FULL_PRIVATE_KEY_HERE...
------END PRIVATE KEY-----
-""",
+-----END PRIVATE KEY-----""",
   "client_email": "wingo-logger@wingo-scraper-419709.iam.gserviceaccount.com",
   "client_id": "116600263750120579422",
   "auth_uri": "https://accounts.google.com/o/oauth2/auth",
   "token_uri": "https://oauth2.googleapis.com/token",
   "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
   "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/wingo-logger%40wingo-scraper-419709.iam.gserviceaccount.com",
-  "universe_domain": "googleapis.com",
+  "universe_domain": "googleapis.com"
 }
 
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -88,7 +85,6 @@ def scrape_and_send():
 
     driver.quit()
 
-# Run loop
 while True:
     wait_until_7th_second()
     scrape_and_send()
